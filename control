@@ -1,9 +1,10 @@
-Package: com.broganminer.appsort
+Package: com.miwix.appsort
 Name: AppSort
 Depends: mobilesubstrate
-Version: 0.0.1
+conflicts: com.broganminer.appsort
+Version: 0.0.2
 Architecture: iphoneos-arm
-Description: An awesome MobileSubstrate tweak!
-Maintainer: Brogan Miner
+Description: Sort apps using lua scripts.
+Maintainer: Lavie Gariv
 Author: Brogan Miner
 Section: Tweaks

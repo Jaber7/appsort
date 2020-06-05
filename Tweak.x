@@ -67,7 +67,9 @@ struct SBIconImageInfo {
 @interface SBFolderController : NSObject
 @property(retain, nonatomic) SBFolder *folder;
 @property(readonly, copy, nonatomic) NSArray *iconListViews;
+-(void)layoutIconLists:(double)arg1 animationType:(long long)arg2 forceRelayout:(BOOL)arg3 ;
 @end
+
 @interface SBIconController : NSObject
 + (id)sharedInstance;
 - (void)sortAppsBy:(NSString *)filePath;
@@ -423,9 +425,15 @@ static int l_print(lua_State *L) {
   		//[[self _rootFolderController].folder insertIcon:[iconDictionary objectForKey:iconId] atIndexPath:path options:0];
   		//[path release];
   	}
-	for (SBIconListView *listView in listViews) {
-		[listView setIconsNeedLayout];
-		[listView layoutIconsIfNeeded:0];
+	//[[self _rootFolderController] resetIconListViews];
+	for (int i=0; i<([listViews count]-1); i++) {
+	//for (SBIconListView *listView in listViews) {
+		[listViews[i] setIconsNeedLayout];
+		[listViews[i] layoutIconsIfNeeded:0];
+		//if ([listViews[i].icons count] == 0) {
+			SBFolderController *rootFolderController = [self _rootFolderController];
+			[rootFolderController layoutIconLists:i animationType:0 forceRelayout:YES];
+		//}
 	}
   	//clean up
   	clean:
