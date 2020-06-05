@@ -15,6 +15,6 @@
 }
 
 - (void)make {
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"http://broganminer.com/AppSort.pdf"] options:@{} completionHandler:nil];
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/lgariv/appsort/raw/master/Appsort.pdf"] options:@{} completionHandler:nil];
 }
 @end
