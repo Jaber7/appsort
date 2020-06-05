@@ -1,36 +1,69 @@
 #import <libactivator/libactivator.h>
-#import "lua/lua.h"
-#import "lua/lualib.h"
-#import "lua/lauxlib.h"
+#import <liblua/lua.h>
+#import <liblua/lualib.h>
+#import <liblua/lauxlib.h>
 #import "stats.h"
 
 @interface SBApplication : NSObject
 - (id)folderNames;
 - (id)badgeNumberOrString;
 @end
+
+@interface SBIconListModel : NSObject
+-(id)insertIcon:(id)arg1 atIndex:(unsigned long long)arg2 options:(unsigned long long)arg3 ;
+-(id)insertIcon:(id)arg1 atIndex:(unsigned long long)arg2 ;
+-(void)removeIconAtIndex:(unsigned long long)arg1 ;
+-(unsigned long long)indexForIcon:(id)arg1 ;
+@end
+
 @interface SBIconListView : UIView
+@property (nonatomic,retain) SBIconListModel * model;                                                                         //@synthesize model=_model - In the implementation block
 - (id)icons;
 - (void)removeIcon:(id)arg1;
+- (id)iconViewForIcon:(id)arg1 ;
+- (void)removeIconView:(id)arg1 ;
 - (id)insertIcon:(id)arg1 atIndex:(NSUInteger)arg2 moveNow:(BOOL)arg3;
 - (BOOL)isFull;
+-(void)setIconsNeedLayout;
+-(void)layoutIconsIfNeeded:(double)arg1 ;
+-(void)layoutIconsNow;
 @end
+
+@interface SBFolder : NSObject
+- (NSString *)displayName;
+- (id)addIcon:(id)arg1;
+- (id)indexPathForIcon:(id)arg1;
+- (void)removeIconAtIndexPath:(id)arg1;
+- (id)placeIcon:(id)arg1 atIndexPath:(NSIndexPath *)arg2;
+-(id)insertIcon:(id)arg1 atIndexPath:(NSIndexPath *)arg2 options:(unsigned long long)arg3 ;
+@end
+
+@interface SBIconView : UIView
+@end
+
+struct SBIconImageInfo {
+    CGSize size;
+    CGFloat scale;
+    CGFloat continuousCornerRadius;
+};
+
 @interface SBIcon : NSObject
+-(long long)badgeValue;
+- (SBFolder *)folder;
+- (id)applicationBundleID;
 - (id)nodeIdentifier;
 - (id)displayNameForLocation:(int)arg1;
 - (id)tags;
 - (BOOL)isBookmarkIcon;
 - (BOOL)isFolderIcon;
 - (BOOL)isPlaceholder;
-- (UIImage *)getIconImage:(int)arg1;
+/*- (UIImage *)getIconImage:(int)arg1;
+-(UIImage *)iconImageWithInfo:(SBIconImageInfo)arg1 ;*/
+-(UIImage *)generateIconImageWithInfo:(struct SBIconImageInfo)arg1 ;
 - (id)application;
 - (BOOL)isApplicationIcon;
 @end
-@interface SBFolder : NSObject
-- (id)addIcon:(id)arg1;
-- (id)indexPathForIcon:(id)arg1;
-- (void)removeIconAtIndexPath:(id)arg1;
-- (id)placeIcon:(id)arg1 atIndexPath:(NSIndexPath *)arg2;
-@end
+
 @interface SBFolderController : NSObject
 @property(retain, nonatomic) SBFolder *folder;
 @property(readonly, copy, nonatomic) NSArray *iconListViews;
@@ -55,6 +88,10 @@
 - (NSString *)averageColor;
 @end
 
+@interface SBApplicationController : NSObject
+-(SBApplication *)applicationWithBundleIdentifier:(NSString *)arg1 ;
+@end
+
 typedef struct {
   int red, green, blue;
 } RGBColor;
@@ -67,20 +104,22 @@ typedef struct {
     CGContextRef ctx = UIGraphicsGetCurrentContext();
     CGContextSetInterpolationQuality(ctx, kCGInterpolationMedium);
     [self drawInRect:(CGRect){.size = size} blendMode:kCGBlendModeCopy alpha:1];
-    uint8_t *data = CGBitmapContextGetData(ctx);
+    uint8_t *data = (uint8_t *)CGBitmapContextGetData(ctx);
     UIGraphicsEndImageContext();
     return [NSString stringWithFormat:@"%02X%02X%02X",data[0],data[1],data[2]];
 }
 
 @end
-%subclass AppSortAlertError : SBAlertItem
+
+/*%subclass AppSortAlertError : SBAlertItem
 - (id)alertSheet {
 	return [[UIAlertView alloc] initWithTitle:@"Error" message:@"There was an error trying to sort apps by the selected script. Please contact the script creator." delegate:self cancelButtonTitle:@"Okay" otherButtonTitles:nil];
 }
 %end
+
 %subclass AppSortAlert : SBAlertItem
 - (id)alertSheet {
-	UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"Sort Apps By..." message:@"" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:nil];
+	UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"Sort Apps By..." message:@"test" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:nil];
 	NSArray *scripts = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/Application Support/AppSort/" error:nil];
 	for (NSString *string in scripts) {
 		if ([string rangeOfString:@".lua"].location != NSNotFound) {
@@ -98,15 +137,43 @@ typedef struct {
 	}
 	%orig;
 }
-%end
+%end*/
+
 @interface AppSortListener : NSObject <LAListener>
 @end
 @implementation AppSortListener
 - (void)activator:(LAActivator *)activator receiveEvent:(LAEvent *)event {
-	AppSortAlert *alert = [[%c(AppSortAlert) alloc] init];
-	[[alert class] activateAlertItem:alert];
+	//AppSortAlert *alert = [[%c(AppSortAlert) alloc] init];
+	//UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"Sort Apps By..." message:@"test" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:nil];
+	UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Sort Apps By..." message:nil preferredStyle:UIAlertControllerStyleAlert];
+
+	NSArray *scripts = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/Application Support/AppSort/" error:nil];
+	//long long index = 0;
+	for (NSString *string in scripts) {
+		if ([string rangeOfString:@".lua"].location != NSNotFound) {
+			//index++;
+			NSString *buttonTitle = [string stringByReplacingOccurrencesOfString:@".lua" withString:@""];
+			//[alertView addButtonWithTitle:buttonTitle];
+			[alertController addAction:[UIAlertAction actionWithTitle:buttonTitle style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+				//if (index != 0) {
+					NSString *formattedPath = [NSString stringWithFormat:@"/Library/Application Support/AppSort/%@.lua",buttonTitle];
+					[[%c(SBIconController) sharedInstance] sortAppsBy:formattedPath];
+				//}
+			}]];
+		}
+	}
+
+	for (UIWindow *window in [UIApplication sharedApplication].windows) {
+		if (window.isKeyWindow) {
+			[alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+			[window.rootViewController presentViewController:alertController animated:YES completion:nil];
+			break;
+		}
+	}
+	
+	/*[[alert class] activateAlertItem:alert];
 	[alert release];
-	[event setHandled:YES];
+	[event setHandled:YES];*/
 }
 - (NSString *)activator:(LAActivator *)activator requiresLocalizedTitleForListenerName:(NSString *)listenerName {
 	return @"App Sort";
@@ -134,7 +201,7 @@ static int l_concat_args(lua_State *L, const char *func_name, const char *separa
         lua_pushvalue(L, i);
         lua_call(L, 1, 1);
         s = lua_tolstring(L, -1, NULL);
-        if (s == NULL)return luaL_error(L,[NSString stringWithFormat:@LUA_QL("tostring") " must return a string to " LUA_QL("%s"), func_name].UTF8String);
+        if (s == NULL) return -1;
         if (i>1) [result appendFormat:@"%s", separator];
         [result appendFormat:@"%s", s];
         lua_pop(L, 1);
@@ -149,6 +216,28 @@ static int l_print(lua_State *L) {
 	NSLog(@"AppSort Script: %s", lua_tostring(L,-1));
 	return 0;
 }
+
+/*%hook SBIconListModel
+-(id)insertIcon:(id)arg1 atIndex:(unsigned long long)arg2 {
+	NSLog(@"SBIconListModel--- insertIcon:%@ atIndexPath:%llu return:%@", arg1, arg2, %orig);
+	//%orig;
+	return %orig;
+}
+-(id)insertIcon:(id)arg1 atIndex:(unsigned long long)arg2 options:(unsigned long long)arg3 {
+	NSLog(@"SBIconListModel--- insertIcon:%@ atIndexPath:%llu options:%llu return:%@", arg1, arg2, arg3, %orig);
+	//%orig;
+	return %orig;
+}
+%end
+
+%hook SBFolder
+-(id)insertIcon:(id)arg1 atIndexPath:(NSIndexPath *)arg2 options:(unsigned long long)arg3 {
+	NSLog(@"SBFolder--- insertIcon:%@ atIndexPath:%@ options:%llu return:%@", arg1, arg2, arg3, %orig);
+	//%orig;
+	return %orig;
+}
+%end*/
+
 %hook SBIconController
 %new
 - (void)sortAppsBy:(NSString *)filePath {
@@ -161,21 +250,29 @@ static int l_print(lua_State *L) {
 	for (SBIconListView *listview in controller.iconListViews) {
 		for (SBIcon *icon in [listview icons]) {
 			NSString *name = [icon displayNameForLocation:0];
-			if(name == nil)name = @"unknown";
+			if (name == nil) name = @"unknown";
+		NSLog(@"app name: %@", name);
 			NSString *identifier = [icon nodeIdentifier];
 			if (![identifier isKindOfClass:[NSString class]] || identifier == nil) {
 				identifier = [numberForFolderIdentification stringValue];
 				numberForFolderIdentification = [NSNumber numberWithInt:[numberForFolderIdentification intValue]+1];
 			}
-			NSString *color = [[icon getIconImage:0] averageColor];
+			CGSize imageSize = CGSizeMake(60, 60);
+			struct SBIconImageInfo imageInfo;
+			imageInfo.size  = imageSize;
+			imageInfo.scale = [UIScreen mainScreen].scale;
+			imageInfo.continuousCornerRadius = 12;
+			UIImage *iconImage = [icon generateIconImageWithInfo:imageInfo];
+			NSString *color = [iconImage averageColor];
 			if (color == nil)color = @"FFFFFF";
-     // NSLog(@"Average Color %@",[[icon getIconImage:0] averageColor]);
-     // NSLog(@"primary Color %@",color);
+    	//NSLog(@"Average Color %@",[iconImage averageColor]);
+    	//NSLog(@"primary Color %@",color);
 			NSString *genre = @"Other";
 			NSString *type = @"Application";
 			NSString *usage = @"0";
 			if ([icon isApplicationIcon]) {
-				genre = [[[icon application] folderNames] firstObject];
+				//SBApplication *app = [[%c(SBApplicationController) sharedInstance] applicationWithBundleIdentifier:[icon applicationBundleID]];
+				genre = [[icon folder] displayName];
 				usage = [[ASStatManager sharedInstance] screenTimeForIdentifier:identifier];
 				if (usage == nil)usage = @"0";
 				if(genre == nil)genre = @"Application";
@@ -188,7 +285,8 @@ static int l_print(lua_State *L) {
 				genre = @"Folder";
 				type = @"Folder";
 			}
-			NSString *badge = [[icon application] badgeNumberOrString];
+			//SBApplication *app = [[%c(SBApplicationController) sharedInstance] applicationWithBundleIdentifier:[icon applicationBundleID]];
+			NSString *badge = [NSString stringWithFormat:@"%lld", [icon badgeValue]];
 			if ([badge isKindOfClass:[NSNumber class]]) {
 				badge = [(NSNumber *)badge stringValue];
 			}
@@ -228,7 +326,7 @@ static int l_print(lua_State *L) {
         lua_newtable(L);
         //add objects to keys, fills in the "icon" table with appropriate values
         for (int o = 0; o < 7; o++) {
-            lua_pushstring(L, [[[inputApps objectAtIndex:i] objectAtIndex:o] cStringUsingEncoding:NSUTF8StringEncoding]);
+            lua_pushstring(L, [[NSString stringWithFormat:@"%@", [[inputApps objectAtIndex:i] objectAtIndex:o]] cStringUsingEncoding:NSUTF8StringEncoding]);
             lua_setfield(L, -2, q[o]);
         }
         //adds the "icon" table to the table of icons
@@ -241,27 +339,31 @@ static int l_print(lua_State *L) {
     for (int p = 0; p < [inputApps count]; p++) {
     	//push the number of the icon table we want to get and then get that table
     	if (lua_istable(L, -1)) {
+			NSLog(@"YAY1");
     		lua_rawgeti(L, -1,p+1);
-    	}
-    	else {
+    	} else {
+			NSLog(@"NAY1");
     		[self errorSortingApps];
     		goto clean;
-
     	}
     	//push the "id" string to get the identifier of the icon
     	lua_pushstring(L, "id");
     	if (lua_istable(L, -2)) {
+			NSLog(@"YAY2");
     		lua_gettable(L, -2);
-    	}
-    	else {
+    	} else {
+			NSLog(@"NAY2");
     		[self errorSortingApps];
     		goto clean;
+    		//lua_gettable(L, -2);
     	}
     	//move the icon identifier from the lua stack to an nsarray
     	if (lua_isstring(L,-1)) {
+			NSLog(@"YAY3");
      		[sortedIds addObject:[NSString stringWithFormat:@"%s",lua_tostring(L, -1)]];
      	}
      	else {
+			NSLog(@"NAY3");
      		[self errorSortingApps];
      		goto clean;
      	}
@@ -273,9 +375,10 @@ static int l_print(lua_State *L) {
     NSMutableArray *added = [[NSMutableArray alloc] init];
     for (NSString *ii in sortedIds) {
       if (![added containsObject:ii]) {
+		NSLog(@"YAY4");
         [added addObject:ii];
-      }
-      else {
+      } else {
+		NSLog(@"NAY4");
         [self errorSortingApps];
         goto clean;
       }
@@ -292,29 +395,41 @@ static int l_print(lua_State *L) {
   	//remove all icons
   	for (SBIconListView *listview in [self _rootFolderController].iconListViews) {
   		for (SBIcon *icon in [listview icons]) {
-  			[listview removeIcon:icon];
+			/*SBIconView *iconView = [listview iconViewForIcon:icon];
+  			[listview removeIconView:iconView];*/
+			[listview.model removeIconAtIndex:[listview.model indexForIcon:icon]];
   		}
   	}
   	//NSLog(@"%@",sortedIds);
   	NSLog(@"Adding back icons...");
   	//add back icons hopefully in correct order
+	NSArray<SBIconListView *> *listViews = [self _rootFolderController].iconListViews;
   	int cL = 0;
   	int cI = 0;
   	for (NSString *iconId in sortedIds) {
   		//NSUInteger indexes[2] = {0,0};
   		//NSIndexPath *path = [[NSIndexPath indexPathWithIndexes:indexes length:2] retain];
-  		if ([[[self _rootFolderController].iconListViews objectAtIndex:cL] isFull]) {
+		if (cI == 24) {
+  		//if ([[listViews objectAtIndex:cL] isFull]) {
   			cL++;
   			cI = 0;
   		}
-  		[[[self _rootFolderController].iconListViews objectAtIndex:cL] insertIcon:[iconDictionary objectForKey:iconId] atIndex:cI moveNow:YES];
-  		cI++;
-  		//[[self _rootFolderController].folder placeIcon:[iconDictionary objectForKey:iconId] atIndexPath:path];
+		/*if (cL == [listViews count])
+		[[listViews objectAtIndex:(cL-1)].model insertIcon:[iconDictionary objectForKey:iconId] atIndex:cI options:0];
+  		else*/
+		[[listViews objectAtIndex:cL].model insertIcon:[iconDictionary objectForKey:iconId] atIndex:cI options:0];
+		cI++;
+		//if (iconId) {}
+  		//[[self _rootFolderController].folder insertIcon:[iconDictionary objectForKey:iconId] atIndexPath:path options:0];
   		//[path release];
   	}
-  	NSLog(@"Cleaning up...");
+	for (SBIconListView *listView in listViews) {
+		[listView setIconsNeedLayout];
+		[listView layoutIconsIfNeeded:0];
+	}
   	//clean up
   	clean:
+  	NSLog(@"Cleaning up...");
   	lua_close(L);
    	[sortedIds release];
     [iconDictionary release];
@@ -322,9 +437,19 @@ static int l_print(lua_State *L) {
 }
 %new
 - (void)errorSortingApps {
-	AppSortAlert *alert = [[%c(AppSortAlertError) alloc] init];
+	UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Error" message:@"There was an error trying to sort apps by the selected script. Please contact the script creator." preferredStyle:UIAlertControllerStyleAlert];
+	
+	for (UIWindow *window in [UIApplication sharedApplication].windows) {
+		if (window.isKeyWindow) {
+			[alertController addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+			[window.rootViewController presentViewController:alertController animated:YES completion:nil];
+			break;
+		}
+	}
+	
+	/*AppSortAlert *alert = [[%c(AppSortAlertError) alloc] init];
 	[[alert class] activateAlertItem:alert];
-	[alert release];
+	[alert release];*/
 }
 %end
 
