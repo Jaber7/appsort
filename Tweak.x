@@ -1,7 +1,7 @@
 #import <libactivator/libactivator.h>
-#import <liblua/lua.h>
-#import <liblua/lualib.h>
-#import <liblua/lauxlib.h>
+#include <lua5.3/lua.h>
+#include <lua5.3/lualib.h>
+#include <lua5.3/lauxlib.h>
 #import "stats.h"
 
 @interface SBApplication : NSObject
@@ -64,7 +64,17 @@ struct SBIconImageInfo {
 - (BOOL)isApplicationIcon;
 @end
 
+@interface SBFolderView : UIView
+//-(void)_updateIconListViews;
+-(void)_removeIconListView:(SBIconListView *)arg1 ;
+@end
+
+@interface SBRootFolderView : SBFolderView
+-(void)resetIconListViews;
+@end
+
 @interface SBFolderController : NSObject
+@property (nonatomic,readonly) SBFolderView * folderView; 
 @property(retain, nonatomic) SBFolder *folder;
 @property(readonly, copy, nonatomic) NSArray *iconListViews;
 -(void)layoutIconLists:(double)arg1 animationType:(long long)arg2 forceRelayout:(BOOL)arg3 ;
@@ -172,10 +182,6 @@ typedef struct {
 			break;
 		}
 	}
-	
-	/*[[alert class] activateAlertItem:alert];
-	[alert release];
-	[event setHandled:YES];*/
 }
 - (NSString *)activator:(LAActivator *)activator requiresLocalizedTitleForListenerName:(NSString *)listenerName {
 	return @"App Sort";
@@ -215,18 +221,18 @@ static int l_concat_args(lua_State *L, const char *func_name, const char *separa
 
 static int l_print(lua_State *L) {
 	l_concat_args(L, "print", "\t");
-	NSLog(@"AppSort Script: %s", lua_tostring(L,-1));
+	NSLog(@"AppSortLog AppSort Script: %s", lua_tostring(L,-1));
 	return 0;
 }
 
 /*%hook SBIconListModel
 -(id)insertIcon:(id)arg1 atIndex:(unsigned long long)arg2 {
-	NSLog(@"SBIconListModel--- insertIcon:%@ atIndexPath:%llu return:%@", arg1, arg2, %orig);
+	NSLog(@"AppSortLog SBIconListModel--- insertIcon:%@ atIndexPath:%llu return:%@", arg1, arg2, %orig);
 	//%orig;
 	return %orig;
 }
 -(id)insertIcon:(id)arg1 atIndex:(unsigned long long)arg2 options:(unsigned long long)arg3 {
-	NSLog(@"SBIconListModel--- insertIcon:%@ atIndexPath:%llu options:%llu return:%@", arg1, arg2, arg3, %orig);
+	NSLog(@"AppSortLog SBIconListModel--- insertIcon:%@ atIndexPath:%llu options:%llu return:%@", arg1, arg2, arg3, %orig);
 	//%orig;
 	return %orig;
 }
@@ -234,7 +240,7 @@ static int l_print(lua_State *L) {
 
 %hook SBFolder
 -(id)insertIcon:(id)arg1 atIndexPath:(NSIndexPath *)arg2 options:(unsigned long long)arg3 {
-	NSLog(@"SBFolder--- insertIcon:%@ atIndexPath:%@ options:%llu return:%@", arg1, arg2, arg3, %orig);
+	NSLog(@"AppSortLog SBFolder--- insertIcon:%@ atIndexPath:%@ options:%llu return:%@", arg1, arg2, arg3, %orig);
 	//%orig;
 	return %orig;
 }
@@ -243,7 +249,7 @@ static int l_print(lua_State *L) {
 %hook SBIconController
 %new
 - (void)sortAppsBy:(NSString *)filePath {
-	NSLog(@"Preparing icons...");
+	NSLog(@"AppSortLog Preparing icons...");
 	//Create an array with arrays to be converted into lua tables for external script processing, also create a dictionary so we can look up icons based on id's
 	NSMapTable *iconDictionary = [[NSMapTable alloc] init];
 	NSMutableArray *inputApps = [[NSMutableArray alloc] init];
@@ -253,7 +259,7 @@ static int l_print(lua_State *L) {
 		for (SBIcon *icon in [listview icons]) {
 			NSString *name = [icon displayNameForLocation:0];
 			if (name == nil) name = @"unknown";
-		NSLog(@"app name: %@", name);
+		//NSLog(@"AppSortLog app name: %@", name);
 			NSString *identifier = [icon nodeIdentifier];
 			if (![identifier isKindOfClass:[NSString class]] || identifier == nil) {
 				identifier = [numberForFolderIdentification stringValue];
@@ -267,8 +273,8 @@ static int l_print(lua_State *L) {
 			UIImage *iconImage = [icon generateIconImageWithInfo:imageInfo];
 			NSString *color = [iconImage averageColor];
 			if (color == nil)color = @"FFFFFF";
-    	//NSLog(@"Average Color %@",[iconImage averageColor]);
-    	//NSLog(@"primary Color %@",color);
+    	//NSLog(@"AppSortLog Average Color %@",[iconImage averageColor]);
+    	//NSLog(@"AppSortLog primary Color %@",color);
 			NSString *genre = @"Other";
 			NSString *type = @"Application";
 			NSString *usage = @"0";
@@ -305,7 +311,7 @@ static int l_print(lua_State *L) {
 
 		}
 	}
-	NSLog(@"Sorting icons... %@", filePath);
+	NSLog(@"AppSortLog Sorting icons... %@", filePath);
 	//Initialize lua and get libraries ready
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
@@ -341,31 +347,31 @@ static int l_print(lua_State *L) {
     for (int p = 0; p < [inputApps count]; p++) {
     	//push the number of the icon table we want to get and then get that table
     	if (lua_istable(L, -1)) {
-			NSLog(@"YAY1");
+			NSLog(@"AppSortLog YAY1");
     		lua_rawgeti(L, -1,p+1);
     	} else {
-			NSLog(@"NAY1");
+			NSLog(@"AppSortLog NAY1");
     		[self errorSortingApps];
     		goto clean;
     	}
     	//push the "id" string to get the identifier of the icon
     	lua_pushstring(L, "id");
     	if (lua_istable(L, -2)) {
-			NSLog(@"YAY2");
+			NSLog(@"AppSortLog YAY2");
     		lua_gettable(L, -2);
     	} else {
-			NSLog(@"NAY2");
+			NSLog(@"AppSortLog NAY2");
     		[self errorSortingApps];
     		goto clean;
     		//lua_gettable(L, -2);
     	}
     	//move the icon identifier from the lua stack to an nsarray
     	if (lua_isstring(L,-1)) {
-			NSLog(@"YAY3");
+			NSLog(@"AppSortLog YAY3");
      		[sortedIds addObject:[NSString stringWithFormat:@"%s",lua_tostring(L, -1)]];
      	}
      	else {
-			NSLog(@"NAY3");
+			NSLog(@"AppSortLog NAY3");
      		[self errorSortingApps];
      		goto clean;
      	}
@@ -373,14 +379,14 @@ static int l_print(lua_State *L) {
      	lua_pop(L, 2);
     }
     //close lua session
-    NSLog(@"making sure all icons are included in script and no duplicates...");
+    NSLog(@"AppSortLog making sure all icons are included in script and no duplicates...");
     NSMutableArray *added = [[NSMutableArray alloc] init];
     for (NSString *ii in sortedIds) {
       if (![added containsObject:ii]) {
-		NSLog(@"YAY4");
+		NSLog(@"AppSortLog YAY4");
         [added addObject:ii];
       } else {
-		NSLog(@"NAY4");
+		NSLog(@"AppSortLog NAY4");
         [self errorSortingApps];
         goto clean;
       }
@@ -393,7 +399,7 @@ static int l_print(lua_State *L) {
         goto clean;
       }
     }
-    NSLog(@"removing icons...");
+    NSLog(@"AppSortLog removing icons...");
   	//remove all icons
   	for (SBIconListView *listview in [self _rootFolderController].iconListViews) {
   		for (SBIcon *icon in [listview icons]) {
@@ -402,8 +408,8 @@ static int l_print(lua_State *L) {
 			[listview.model removeIconAtIndex:[listview.model indexForIcon:icon]];
   		}
   	}
-  	//NSLog(@"%@",sortedIds);
-  	NSLog(@"Adding back icons...");
+  	//NSLog(@"AppSortLog %@",sortedIds);
+  	NSLog(@"AppSortLog Adding back icons...");
   	//add back icons hopefully in correct order
 	NSArray<SBIconListView *> *listViews = [self _rootFolderController].iconListViews;
   	int cL = 0;
@@ -430,14 +436,13 @@ static int l_print(lua_State *L) {
 	//for (SBIconListView *listView in listViews) {
 		[listViews[i] setIconsNeedLayout];
 		[listViews[i] layoutIconsIfNeeded:0];
-		//if ([listViews[i].icons count] == 0) {
-			SBFolderController *rootFolderController = [self _rootFolderController];
-			[rootFolderController layoutIconLists:i animationType:0 forceRelayout:YES];
-		//}
+		SBRootFolderView *rootFolderView = (SBRootFolderView *)[self _rootFolderController].folderView;
+		if ([listViews[i].icons count] == 0)
+		[rootFolderView _removeIconListView:listViews[i]];
 	}
   	//clean up
   	clean:
-  	NSLog(@"Cleaning up...");
+  	NSLog(@"AppSortLog Cleaning up...");
   	lua_close(L);
    	[sortedIds release];
     [iconDictionary release];
@@ -454,10 +459,6 @@ static int l_print(lua_State *L) {
 			break;
 		}
 	}
-	
-	/*AppSortAlert *alert = [[%c(AppSortAlertError) alloc] init];
-	[[alert class] activateAlertItem:alert];
-	[alert release];*/
 }
 %end
 

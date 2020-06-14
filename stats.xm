@@ -32,7 +32,7 @@ static ASStatManager *manager;
 @end
 
 %hook SBApplication
-- (void)processDidLaunch:(id)arg1 {
+- (void)_processDidLaunch:(id)arg1 {
 	NSMutableDictionary *oldStats = [[[NSUserDefaults standardUserDefaults] objectForKey:[self bundleIdentifier] inDomain:@"com.broganminer.ASStatManager"] mutableCopy];
 
 	NSInteger count = 0;
