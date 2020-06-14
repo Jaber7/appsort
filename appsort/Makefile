@@ -1,7 +1,6 @@
 include $(THEOS)/makefiles/common.mk
 export ARCHS = arm64 arm64e
-TARGET = iphone:clang:13.1:9.3
-SYSROOT = $(THEOS)/sdks/iPhoneOS13.1.sdk
+TARGET = iphone:clang:13.5:12.2
 
 BUNDLE_NAME = appsort
 appsort_FILES = BMASRootListController.m

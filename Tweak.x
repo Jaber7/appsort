@@ -109,7 +109,7 @@ typedef struct {
 } RGBColor;
 
 @implementation UIImage (AppSort)
- 
+
 - (NSString *)averageColor {
     CGSize size = {1, 1};
     UIGraphicsBeginImageContext(size);
@@ -118,6 +118,7 @@ typedef struct {
     [self drawInRect:(CGRect){.size = size} blendMode:kCGBlendModeCopy alpha:1];
     uint8_t *data = (uint8_t *)CGBitmapContextGetData(ctx);
     UIGraphicsEndImageContext();
+	NSLog(@"AppSort avgColor:%@", [NSString stringWithFormat:@"%02X%02X%02X",data[0],data[1],data[2]]);
     return [NSString stringWithFormat:@"%02X%02X%02X",data[0],data[1],data[2]];
 }
 
@@ -272,9 +273,9 @@ static int l_print(lua_State *L) {
 			imageInfo.continuousCornerRadius = 12;
 			UIImage *iconImage = [icon generateIconImageWithInfo:imageInfo];
 			NSString *color = [iconImage averageColor];
-			if (color == nil)color = @"FFFFFF";
-    	//NSLog(@"AppSortLog Average Color %@",[iconImage averageColor]);
-    	//NSLog(@"AppSortLog primary Color %@",color);
+			if (color == nil) color = @"FFFFFF";
+    	NSLog(@"AppSortLog Average Color %@",[iconImage averageColor]);
+    	NSLog(@"AppSortLog primary Color %@",color);
 			NSString *genre = @"Other";
 			NSString *type = @"Application";
 			NSString *usage = @"0";
