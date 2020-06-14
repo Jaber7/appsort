@@ -1,6 +1,6 @@
 Package: com.miwix.appsort
 Name: AppSort
-Depends: mobilesubstrate
+Depends: mobilesubstrate, lua5.3
 conflicts: com.broganminer.appsort
 Version: 0.0.2
 Architecture: iphoneos-arm

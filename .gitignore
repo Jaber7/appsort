@@ -4,3 +4,4 @@ _
 packages
 .DS_Store
 .vscode
+libliblua

@@ -1,7 +1,7 @@
 include $(THEOS)/makefiles/common.mk
 
 export ARCHS = arm64 arm64e
-TARGET = iphone:clang:13.5:10.3
+TARGET = iphone:clang:13.5:12.2
 #SYSROOT = $(THEOS)/sdks/iPhoneOS13.1.sdk
 
 TWEAK_NAME = AppSort
