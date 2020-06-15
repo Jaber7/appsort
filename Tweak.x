@@ -243,17 +243,18 @@ static int l_print(lua_State *L) {
   SBFolderController *controller = ([self _currentFolderController])?[self _currentFolderController]:[self _rootFolderController];
 	for (SBIconListView *listview in controller.iconListViews) {
 		for (SBIcon *icon in [listview icons]) {
-			if ([icon isKindOfClass:[%c(SBFolderIcon) class]]){
-				%log(@"AppSort iconisfolder");
-
-			}
 			%log(@"AppSort icon:%@", [icon class]);
+			NSString *identifier = [icon nodeIdentifier];
+			if (![identifier isKindOfClass:[NSString class]] || identifier == nil) {
+				identifier = [numberForFolderIdentification stringValue];
+				numberForFolderIdentification = [NSNumber numberWithInt:[numberForFolderIdentification intValue]+1];
+			}
 			NSString *genre = @"Other";
 			NSString *type = @"Application";
 			NSString *usage = @"0";
 			if ([icon isApplicationIcon]) {
 				genre = [[icon folder] displayName];
-				//usage = [[ASStatManager sharedInstance] screenTimeForIdentifier:identifier];
+				usage = [[ASStatManager sharedInstance] screenTimeForIdentifier:identifier];
 				if (usage == nil)usage = @"0";
 				if(genre == nil)genre = @"Application";
 			} else if ([icon isBookmarkIcon]) {
@@ -266,11 +267,6 @@ static int l_print(lua_State *L) {
 			NSString *name = [icon displayNameForLocation:0];
 			if (name == nil) name = @"unknown";
 		//NSLog(@"AppSortLog app name: %@", name);
-			NSString *identifier = [icon nodeIdentifier];
-			if (![identifier isKindOfClass:[NSString class]] || identifier == nil) {
-				identifier = [numberForFolderIdentification stringValue];
-				numberForFolderIdentification = [NSNumber numberWithInt:[numberForFolderIdentification intValue]+1];
-			}
 			CGSize imageSize = CGSizeMake(60, 60);
 			struct SBIconImageInfo imageInfo;
 			imageInfo.size  = imageSize;
