@@ -1,9 +1,6 @@
 function sort(apps)
 	a = {}
-	count = 1
-	for key,table in ipairs(apps) do
-		count = count + 1 
-	end
+	count = #apps
 	i = 1
 	while i <= count do
 		p = findBiggestUser(apps)

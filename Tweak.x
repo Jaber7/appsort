@@ -96,9 +96,6 @@ struct SBIconImageInfo {
 @end
 @interface AppSortAlertError : SBAlertItem
 @end
-@interface UIImage (AppSort)
-- (NSString *)averageColor;
-@end
 
 @interface SBApplicationController : NSObject
 -(SBApplication *)applicationWithBundleIdentifier:(NSString *)arg1 ;
@@ -107,22 +104,6 @@ struct SBIconImageInfo {
 typedef struct {
   int red, green, blue;
 } RGBColor;
-
-@implementation UIImage (AppSort)
-
-- (NSString *)averageColor {
-    CGSize size = {1, 1};
-    UIGraphicsBeginImageContext(size);
-    CGContextRef ctx = UIGraphicsGetCurrentContext();
-    CGContextSetInterpolationQuality(ctx, kCGInterpolationMedium);
-    [self drawInRect:(CGRect){.size = size} blendMode:kCGBlendModeCopy alpha:1];
-    uint8_t *data = (uint8_t *)CGBitmapContextGetData(ctx);
-    UIGraphicsEndImageContext();
-	NSLog(@"AppSort avgColor:%@", [NSString stringWithFormat:@"%02X%02X%02X",data[0],data[1],data[2]]);
-    return [NSString stringWithFormat:@"%02X%02X%02X",data[0],data[1],data[2]];
-}
-
-@end
 
 /*%subclass AppSortAlertError : SBAlertItem
 - (id)alertSheet {
@@ -247,6 +228,10 @@ static int l_print(lua_State *L) {
 }
 %end*/
 
+@interface SBFolder (fix)
+@property (nonatomic,copy,readonly) NSArray * icons; 
+@end
+
 %hook SBIconController
 %new
 - (void)sortAppsBy:(NSString *)filePath {
@@ -258,6 +243,26 @@ static int l_print(lua_State *L) {
   SBFolderController *controller = ([self _currentFolderController])?[self _currentFolderController]:[self _rootFolderController];
 	for (SBIconListView *listview in controller.iconListViews) {
 		for (SBIcon *icon in [listview icons]) {
+			if ([icon isKindOfClass:[%c(SBFolderIcon) class]]){
+				%log(@"AppSort iconisfolder");
+
+			}
+			%log(@"AppSort icon:%@", [icon class]);
+			NSString *genre = @"Other";
+			NSString *type = @"Application";
+			NSString *usage = @"0";
+			if ([icon isApplicationIcon]) {
+				genre = [[icon folder] displayName];
+				//usage = [[ASStatManager sharedInstance] screenTimeForIdentifier:identifier];
+				if (usage == nil)usage = @"0";
+				if(genre == nil)genre = @"Application";
+			} else if ([icon isBookmarkIcon]) {
+				genre = @"Webclip";
+				type = @"Webclip";
+			} else if ([icon isFolderIcon]) {
+				genre = @"Folder";
+				type = @"Folder";
+			}
 			NSString *name = [icon displayNameForLocation:0];
 			if (name == nil) name = @"unknown";
 		//NSLog(@"AppSortLog app name: %@", name);
@@ -271,30 +276,33 @@ static int l_print(lua_State *L) {
 			imageInfo.size  = imageSize;
 			imageInfo.scale = [UIScreen mainScreen].scale;
 			imageInfo.continuousCornerRadius = 12;
-			UIImage *iconImage = [icon generateIconImageWithInfo:imageInfo];
-			NSString *color = [iconImage averageColor];
-			if (color == nil) color = @"FFFFFF";
-    	NSLog(@"AppSortLog Average Color %@",[iconImage averageColor]);
+			UIImage *iconImage;
+			if ([icon isKindOfClass:[%c(SBFolderIcon) class]]){
+				%log(@"AppSort iconisfolder");
+				iconImage = [[[(SBFolderIcon *)icon folder] icons][0] generateIconImageWithInfo:imageInfo];
+			}else
+				iconImage = [icon generateIconImageWithInfo:imageInfo];
+			CGSize size = {1, 1};
+			UIGraphicsBeginImageContext(size);
+			CGContextRef ctx = UIGraphicsGetCurrentContext();
+			CGContextSetInterpolationQuality(ctx, kCGInterpolationMedium);
+			[iconImage drawInRect:(CGRect){.size = size} blendMode:kCGBlendModeCopy alpha:1];
+			uint8_t *data = CGBitmapContextGetData(ctx);
+			UIColor *colour = [UIColor colorWithRed:data[2] / 255.0f
+											green:data[1] / 255.0f
+											blue:data[0] / 255.0f
+											alpha:1];
+			UIGraphicsEndImageContext();
+			const CGFloat *components = CGColorGetComponents(colour.CGColor);
+			CGFloat r = components[0];
+			CGFloat g = components[1];
+			CGFloat b = components[2];
+			NSString *color = [NSString stringWithFormat:@"%02lX%02lX%02lX",
+					lroundf(r * 255),
+					lroundf(g * 255),
+					lroundf(b * 255)];
+			if ([color containsString:@"000000"]) color = @"FFFFFF";
     	NSLog(@"AppSortLog primary Color %@",color);
-			NSString *genre = @"Other";
-			NSString *type = @"Application";
-			NSString *usage = @"0";
-			if ([icon isApplicationIcon]) {
-				//SBApplication *app = [[%c(SBApplicationController) sharedInstance] applicationWithBundleIdentifier:[icon applicationBundleID]];
-				genre = [[icon folder] displayName];
-				usage = [[ASStatManager sharedInstance] screenTimeForIdentifier:identifier];
-				if (usage == nil)usage = @"0";
-				if(genre == nil)genre = @"Application";
-			}
-			else if ([icon isBookmarkIcon]) {
-				genre = @"Webclip";
-				type = @"Webclip";
-			}
-			else if ([icon isFolderIcon]) {
-				genre = @"Folder";
-				type = @"Folder";
-			}
-			//SBApplication *app = [[%c(SBApplicationController) sharedInstance] applicationWithBundleIdentifier:[icon applicationBundleID]];
 			NSString *badge = [NSString stringWithFormat:@"%lld", [icon badgeValue]];
 			if ([badge isKindOfClass:[NSNumber class]]) {
 				badge = [(NSNumber *)badge stringValue];
@@ -402,39 +410,26 @@ static int l_print(lua_State *L) {
     }
     NSLog(@"AppSortLog removing icons...");
   	//remove all icons
-  	for (SBIconListView *listview in [self _rootFolderController].iconListViews) {
+  	for (SBIconListView *listview in [self _currentFolderController].iconListViews) {
   		for (SBIcon *icon in [listview icons]) {
-			/*SBIconView *iconView = [listview iconViewForIcon:icon];
-  			[listview removeIconView:iconView];*/
 			[listview.model removeIconAtIndex:[listview.model indexForIcon:icon]];
   		}
   	}
   	//NSLog(@"AppSortLog %@",sortedIds);
   	NSLog(@"AppSortLog Adding back icons...");
   	//add back icons hopefully in correct order
-	NSArray<SBIconListView *> *listViews = [self _rootFolderController].iconListViews;
+	NSArray<SBIconListView *> *listViews = [self _currentFolderController].iconListViews;
   	int cL = 0;
   	int cI = 0;
   	for (NSString *iconId in sortedIds) {
-  		//NSUInteger indexes[2] = {0,0};
-  		//NSIndexPath *path = [[NSIndexPath indexPathWithIndexes:indexes length:2] retain];
 		if (cI == 24) {
-  		//if ([[listViews objectAtIndex:cL] isFull]) {
   			cL++;
   			cI = 0;
   		}
-		/*if (cL == [listViews count])
-		[[listViews objectAtIndex:(cL-1)].model insertIcon:[iconDictionary objectForKey:iconId] atIndex:cI options:0];
-  		else*/
 		[[listViews objectAtIndex:cL].model insertIcon:[iconDictionary objectForKey:iconId] atIndex:cI options:0];
 		cI++;
-		//if (iconId) {}
-  		//[[self _rootFolderController].folder insertIcon:[iconDictionary objectForKey:iconId] atIndexPath:path options:0];
-  		//[path release];
   	}
-	//[[self _rootFolderController] resetIconListViews];
 	for (int i=0; i<([listViews count]-1); i++) {
-	//for (SBIconListView *listView in listViews) {
 		[listViews[i] setIconsNeedLayout];
 		[listViews[i] layoutIconsIfNeeded:0];
 		SBRootFolderView *rootFolderView = (SBRootFolderView *)[self _rootFolderController].folderView;
